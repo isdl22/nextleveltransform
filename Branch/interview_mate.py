@@ -1,3 +1,56 @@
+"""
+면접 메이트 대시보드 (interview_mate.py)
+=========================================
+
+[ 인터뷰 기반 컨텍스트 문서 | 2026-04-30 ]
+
+## 서비스 개요
+- 서비스명: 면접 메이트 (NextLevelTransform)
+- 목적: AI 기반 모의면접 서비스의 운영 지표를 실시간 모니터링
+- DB 출처: Bubble.io가 AWS RDS PostgreSQL에 자동 생성한 스키마
+  - 스키마: basic$1function$1test_live
+  - 컬럼명(____text, _____text 등)은 Bubble이 자동 생성한 난독화 네이밍
+  - 경고: Bubble 업데이트 시 컬럼명/구조 변경 가능 → 대시보드 장애 위험
+
+## 사용자
+- 대상: 운영팀 전체
+- 기존 문제: Bubble 내장 뷰의 차트/시각화 부재, 복잡한 필터 조합 불가
+- 현재 실행 환경: localhost 로컬 실행만 (외부 서버 미배포)
+
+## 핵심 KPI (매일 확인 우선순위)
+1. 결제 성공 건수 및 금액 ← 가장 중요
+2. 모의면접 세션 수
+3. 로그인 수
+4. 유입수 (NLT_169)
+
+## 사업 목표
+- 핵심 목표: 결제 전환율 향상 (유입 → 로그인 → 결제 퍼널 최적화)
+- Q&A 데이터 활용 방향: 사용자 답변 패턴 분석 → AI 질문 품질 개선
+
+## 데이터 특이사항
+- 결제 상태값 비일관성: 'DONE', '결제 완료', '결제완료', 'DONE 완료' 혼재
+  → 현재까지 실제 누락은 없음이 확인됨. Bubble 업데이트 시 새 상태값 추가 가능성 존재
+- interview_mate_yn_boolean 필드: 의미 불명확, 현재 활용 가치 없음
+- UTM 파라미터: 일부 URL에만 존재 → 마케팅 채널별 전환율 추적은 현재 불완전
+- 상품 구조: 여러 상품 병행 판매 중 (product_text 필드)
+
+## 성능 이슈
+- 탭 전환 시 DB에 최대 5회 동시 접속 → 간헐적 응답 지연 발생 확인
+- 개선 방안: psycopg2.pool 또는 SQLAlchemy connection pooling 적용 권장
+
+## 미구현 기능 (우선순위 순)
+- [HIGH] 알림 기능: 일별/주별 KPI 요약 → Slack 또는 이메일 발송
+- [HIGH] 코호트/퍼널 분석: 유입 → 로그인 → 결제 전환 흐름 추적
+- [HIGH] CSV 엑스포트: 결제/세션 데이터 엑셀 다운로드
+- [MED]  UTM 파라미터 파싱: URL에서 utm_source/medium/campaign 자동 추출
+- [MED]  회원별 헴스맵: 결제 이력 + 세션 이력 통합 뷰
+- [LOW]  사용자 인증: 서버 배포 전 로그인 기능 추가
+
+## 보안 주의사항
+- DB 접속 정보(DSN)가 코드에 하드코딩 → 서버 배포 전 환경변수 분리 필수
+- 이메일/이름 검색 쿼리: SQL 인젝션 취약점 → 파라미터화 처리 완료 (아래 코드 참고)
+"""
+
 from flask import Flask, jsonify, request, render_template_string
 import psycopg2
 import psycopg2.extras
@@ -674,9 +727,11 @@ def api_login_list():
     try:
         cur = conn.cursor()
         flt = date_filter('"Created Date"', start, end)
+        params = []
         if q:
-            flt += f" AND email_text ILIKE '%{q}%'"
-        cur.execute(f'SELECT COUNT(*) as c FROM "{SCHEMA}"."custom$0_nlt_136_changeup_login_out_info" WHERE {flt}')
+            flt += " AND email_text ILIKE %s"
+            params.append(f'%{q}%')
+        cur.execute(f'SELECT COUNT(*) as c FROM "{SCHEMA}"."custom$0_nlt_136_changeup_login_out_info" WHERE {flt}', params)
         total = cur.fetchone()['c']
         cur.execute(f"""
             SELECT email_text AS email,
@@ -686,7 +741,7 @@ def api_login_list():
             FROM "{SCHEMA}"."custom$0_nlt_136_changeup_login_out_info"
             WHERE {flt} ORDER BY "Created Date" DESC
             LIMIT {per} OFFSET {(page-1)*per}
-        """)
+        """, params)
         rows = [{'email': r['email'],
                  'login_dt': str(r['login_dt']) if r['login_dt'] else None,
                  'logout_dt': str(r['logout_dt']) if r['logout_dt'] else None,
@@ -727,8 +782,10 @@ def api_payment_list():
     try:
         cur = conn.cursor()
         flt = date_filter('"Created Date"', start, end) + f' AND {PAY_IM_FILTER}'
+        params = []
         if product:
-            flt += f" AND ____text = '{product.replace(chr(39), chr(39)*2)}'"
+            flt += " AND ____text = %s"
+            params.append(product)
         if status == 'success':
             flt += f' AND {PAY_STATUS_SUCCESS}'
         elif status == 'cancel':
@@ -740,7 +797,7 @@ def api_payment_list():
         elif refund == 'false':
             flt += ' AND (______1_boolean = false OR ______1_boolean IS NULL)'
 
-        cur.execute(f'SELECT COUNT(*) as c, COALESCE(SUM(CASE WHEN {PAY_STATUS_SUCCESS} THEN amount_number ELSE 0 END),0) as s FROM "{SCHEMA}"."custom$0__4" WHERE {flt}')
+        cur.execute(f'SELECT COUNT(*) as c, COALESCE(SUM(CASE WHEN {PAY_STATUS_SUCCESS} THEN amount_number ELSE 0 END),0) as s FROM "{SCHEMA}"."custom$0__4" WHERE {flt}', params)
         agg = cur.fetchone()
         total, total_amount = agg['c'], float(agg['s'])
 
@@ -759,7 +816,7 @@ def api_payment_list():
             WHERE {flt}
             ORDER BY "Created Date" DESC
             LIMIT {per} OFFSET {(page-1)*per}
-        """)
+        """, params)
         rows = []
         for r in cur.fetchall():
             amt = r['amount']
@@ -813,16 +870,19 @@ def api_sim_list():
     try:
         cur = conn.cursor()
         flt = date_filter('s."Created Date"', start, end)
+        params = []
         if q:
-            flt += f" AND (s.email_text ILIKE '%{q}%' OR s.name_text ILIKE '%{q}%')"
+            flt += " AND (s.email_text ILIKE %s OR s.name_text ILIKE %s)"
+            params.extend([f'%{q}%', f'%{q}%'])
         if product:
-            flt += f" AND s.product_text = '{product.replace(chr(39), chr(39)*2)}'"
+            flt += " AND s.product_text = %s"
+            params.append(product)
 
         cur.execute(f"""
             SELECT COUNT(*) as c
             FROM "{SCHEMA}"."custom$0_nlt_159_interview_simulation_data" s
             WHERE {flt}
-        """)
+        """, params)
         total = cur.fetchone()['c']
 
         cur.execute(f"""
@@ -842,7 +902,7 @@ def api_sim_list():
                      s.job_text, s.company_text, s.product_text, s.interview_mate_yn_boolean
             ORDER BY s."Created Date" DESC
             LIMIT {per} OFFSET {(page-1)*per}
-        """)
+        """, params)
         rows = [{'session_id': r['session_id'], 'created': r['created'], 'name': r['name'],
                  'email': r['email'], 'job': r['job'], 'company': r['company'],
                  'product': r['product'], 'interview_mate': r['interview_mate'],
