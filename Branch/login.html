@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>로그인 - Next Level Transform</title>
 
-  <!-- Google Identity Services -->
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <!-- Supabase JS Client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <style>
     * {
@@ -152,6 +152,11 @@
       transform: scale(0.98);
     }
 
+    .btn-login:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
     .divider {
       display: flex;
       align-items: center;
@@ -172,7 +177,6 @@
       font-size: 12px;
     }
 
-    /* 소셜 로그인 버튼 */
     .social-buttons {
       display: flex;
       flex-direction: column;
@@ -199,21 +203,17 @@
       transform: scale(0.98);
     }
 
+    .btn-social:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
     .btn-google {
       background: #ffffff;
       color: #3c4043;
     }
 
-    .btn-google:hover {
-      opacity: 0.9;
-    }
-
-    .btn-naver {
-      background: #03c75a;
-      color: #ffffff;
-    }
-
-    .btn-naver:hover {
+    .btn-google:hover:not(:disabled) {
       opacity: 0.9;
     }
 
@@ -238,16 +238,25 @@
       opacity: 0.8;
     }
 
-    .error-message {
+    .message {
       display: none;
-      background: rgba(233, 69, 96, 0.15);
-      border: 1px solid rgba(233, 69, 96, 0.4);
-      color: #e94560;
       padding: 10px 14px;
       border-radius: 8px;
       font-size: 13px;
       margin-bottom: 16px;
       text-align: center;
+    }
+
+    .message.error {
+      background: rgba(233, 69, 96, 0.15);
+      border: 1px solid rgba(233, 69, 96, 0.4);
+      color: #e94560;
+    }
+
+    .message.success {
+      background: rgba(52, 168, 83, 0.15);
+      border: 1px solid rgba(52, 168, 83, 0.4);
+      color: #34a853;
     }
   </style>
 </head>
@@ -260,9 +269,7 @@
 
     <h2>로그인</h2>
 
-    <div class="error-message" id="errorMsg">
-      이메일 또는 비밀번호가 올바르지 않습니다.
-    </div>
+    <div class="message" id="message"></div>
 
     <form id="loginForm" onsubmit="handleLogin(event)">
       <div class="form-group">
@@ -295,15 +302,13 @@
         <a href="#" class="forgot-password">비밀번호 찾기</a>
       </div>
 
-      <button type="submit" class="btn-login">로그인</button>
+      <button type="submit" class="btn-login" id="btnLogin">로그인</button>
     </form>
 
     <div class="divider"><span>또는</span></div>
 
-    <!-- 소셜 로그인 버튼 -->
     <div class="social-buttons">
-      <!-- Google 로그인 -->
-      <button class="btn-social btn-google" onclick="handleGoogleLogin()">
+      <button class="btn-social btn-google" id="btnGoogle" onclick="handleGoogleLogin()">
         <svg width="20" height="20" viewBox="0 0 48 48">
           <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
           <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
@@ -320,41 +325,69 @@
   </div>
 
   <script>
-    // ======================================================
-    // TODO: 아래 값을 발급받은 Client ID로 교체하세요
-    // ======================================================
-    const GOOGLE_CLIENT_ID = '639619909086-pu05s8td7p8jla84b2i69q2cblhn9sjq.apps.googleusercontent.com';
-    // ======================================================
+    const SUPABASE_URL = 'https://sawlexclfskiczjsehkq.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_FXYTElNiYrm94lmofodoew_kRTXvTsg';
 
-    // 일반 로그인
-    function handleLogin(event) {
+    const { createClient } = supabase;
+    const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    function showMessage(text, type = 'error') {
+      const el = document.getElementById('message');
+      el.textContent = text;
+      el.className = `message ${type}`;
+      el.style.display = 'block';
+    }
+
+    function setLoading(loading) {
+      document.getElementById('btnLogin').disabled = loading;
+      document.getElementById('btnGoogle').disabled = loading;
+      document.getElementById('btnLogin').textContent = loading ? '로그인 중...' : '로그인';
+    }
+
+    // 이메일/비밀번호 로그인
+    async function handleLogin(event) {
       event.preventDefault();
       const email    = document.getElementById('email').value;
       const password = document.getElementById('password').value;
-      const errorMsg = document.getElementById('errorMsg');
 
-      if (email && password) {
-        console.log('로그인 시도:', email);
-        // TODO: 서버 인증 API 연동
-        errorMsg.style.display = 'none';
-      } else {
-        errorMsg.style.display = 'block';
+      setLoading(true);
+      const { data, error } = await sb.auth.signInWithPassword({ email, password });
+      setLoading(false);
+
+      if (error) {
+        showMessage('이메일 또는 비밀번호가 올바르지 않습니다.', 'error');
+        return;
       }
+
+      showMessage('로그인 성공!', 'success');
+      console.log('로그인된 유저:', data.user);
+      // TODO: 로그인 후 이동할 페이지로 redirect
+      // window.location.href = '/dashboard.html';
     }
 
     // Google 로그인
-    function handleGoogleLogin() {
-      google.accounts.id.initialize({
-        client_id: GOOGLE_CLIENT_ID,
-        callback: onGoogleCredential,
+    async function handleGoogleLogin() {
+      setLoading(true);
+      const { error } = await sb.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin + window.location.pathname,
+        },
       });
-      google.accounts.id.prompt();
+      if (error) {
+        showMessage('Google 로그인 중 오류가 발생했습니다.', 'error');
+        setLoading(false);
+      }
     }
 
-    function onGoogleCredential(response) {
-      console.log('Google 로그인 성공. ID Token:', response.credential);
-      // TODO: response.credential(JWT)을 서버로 전송해 검증
-    }
+    // 페이지 로드 시 로그인 상태 확인
+    sb.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        showMessage(`${session.user.email} 로 로그인됐습니다!`, 'success');
+        console.log('세션:', session);
+        // TODO: window.location.href = '/dashboard.html';
+      }
+    });
   </script>
 </body>
 </html>
