@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>로그인 - Next Level Transform</title>
+
+  <!-- Google Identity Services -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <!-- Naver Login SDK -->
+  <script src="https://static.nid.naver.com/js/naverLogin_implicit-1.0.3.js" charset="utf-8"></script>
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .login-container {
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      padding: 48px 40px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.4);
+    }
+
+    .logo {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    .logo h1 {
+      color: #e94560;
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: 1px;
+    }
+
+    .logo p {
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 13px;
+      margin-top: 6px;
+    }
+
+    h2 {
+      color: #ffffff;
+      font-size: 24px;
+      font-weight: 600;
+      margin-bottom: 28px;
+      text-align: center;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 13px;
+      margin-bottom: 8px;
+      font-weight: 500;
+    }
+
+    input[type="email"],
+    input[type="password"] {
+      width: 100%;
+      padding: 12px 16px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 8px;
+      color: #ffffff;
+      font-size: 15px;
+      outline: none;
+      transition: border-color 0.2s, background 0.2s;
+    }
+
+    input[type="email"]:focus,
+    input[type="password"]:focus {
+      border-color: #e94560;
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    input::placeholder {
+      color: rgba(255, 255, 255, 0.3);
+    }
+
+    .options {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      font-size: 13px;
+    }
+
+    .remember-me {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: rgba(255, 255, 255, 0.6);
+      cursor: pointer;
+    }
+
+    .remember-me input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: #e94560;
+      cursor: pointer;
+    }
+
+    .forgot-password {
+      color: #e94560;
+      text-decoration: none;
+      font-weight: 500;
+      transition: opacity 0.2s;
+    }
+
+    .forgot-password:hover {
+      opacity: 0.8;
+    }
+
+    .btn-login {
+      width: 100%;
+      padding: 13px;
+      background: #e94560;
+      color: #ffffff;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+      letter-spacing: 0.5px;
+    }
+
+    .btn-login:hover {
+      background: #c73652;
+    }
+
+    .btn-login:active {
+      transform: scale(0.98);
+    }
+
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 24px 0;
+    }
+
+    .divider::before,
+    .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    .divider span {
+      color: rgba(255, 255, 255, 0.4);
+      font-size: 12px;
+    }
+
+    /* 소셜 로그인 버튼 */
+    .social-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .btn-social {
+      width: 100%;
+      padding: 12px 16px;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+
+    .btn-social:active {
+      transform: scale(0.98);
+    }
+
+    .btn-google {
+      background: #ffffff;
+      color: #3c4043;
+    }
+
+    .btn-google:hover {
+      opacity: 0.9;
+    }
+
+    .btn-naver {
+      background: #03c75a;
+      color: #ffffff;
+    }
+
+    .btn-naver:hover {
+      opacity: 0.9;
+    }
+
+    .btn-social svg {
+      flex-shrink: 0;
+    }
+
+    /* 네이버 로그인 SDK 기본 앵커 숨김 */
+    #naver_id_login {
+      display: none;
+    }
+
+    .signup-link {
+      text-align: center;
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 14px;
+    }
+
+    .signup-link a {
+      color: #e94560;
+      text-decoration: none;
+      font-weight: 600;
+      transition: opacity 0.2s;
+    }
+
+    .signup-link a:hover {
+      opacity: 0.8;
+    }
+
+    .error-message {
+      display: none;
+      background: rgba(233, 69, 96, 0.15);
+      border: 1px solid rgba(233, 69, 96, 0.4);
+      color: #e94560;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      margin-bottom: 16px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <div class="logo">
+      <h1>NEXT LEVEL TRANSFORM</h1>
+      <p>당신의 다음 단계를 함께합니다</p>
+    </div>
+
+    <h2>로그인</h2>
+
+    <div class="error-message" id="errorMsg">
+      이메일 또는 비밀번호가 올바르지 않습니다.
+    </div>
+
+    <form id="loginForm" onsubmit="handleLogin(event)">
+      <div class="form-group">
+        <label for="email">이메일</label>
+        <input
+          type="email"
+          id="email"
+          placeholder="example@email.com"
+          required
+          autocomplete="email"
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="password">비밀번호</label>
+        <input
+          type="password"
+          id="password"
+          placeholder="비밀번호를 입력하세요"
+          required
+          autocomplete="current-password"
+        />
+      </div>
+
+      <div class="options">
+        <label class="remember-me">
+          <input type="checkbox" id="rememberMe" />
+          로그인 상태 유지
+        </label>
+        <a href="#" class="forgot-password">비밀번호 찾기</a>
+      </div>
+
+      <button type="submit" class="btn-login">로그인</button>
+    </form>
+
+    <div class="divider"><span>또는</span></div>
+
+    <!-- 소셜 로그인 버튼 -->
+    <div class="social-buttons">
+      <!-- Google 로그인 -->
+      <button class="btn-social btn-google" onclick="handleGoogleLogin()">
+        <svg width="20" height="20" viewBox="0 0 48 48">
+          <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+          <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+          <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+          <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+        </svg>
+        Google로 로그인
+      </button>
+
+      <!-- 네이버 로그인 SDK 마운트 포인트 -->
+      <div id="naver_id_login"></div>
+
+      <!-- 네이버 로그인 커스텀 버튼 -->
+      <button class="btn-social btn-naver" onclick="handleNaverLogin()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
+          <path d="M16.273 12.845L7.376 0H0v24h7.727V11.155L16.624 24H24V0h-7.727z"/>
+        </svg>
+        네이버로 로그인
+      </button>
+    </div>
+
+    <div class="signup-link">
+      아직 계정이 없으신가요? <a href="#">회원가입</a>
+    </div>
+  </div>
+
+  <script>
+    // ======================================================
+    // TODO: 아래 값을 발급받은 Client ID로 교체하세요
+    // ======================================================
+    const GOOGLE_CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com';
+    const NAVER_CLIENT_ID  = 'YOUR_NAVER_CLIENT_ID';
+    const NAVER_CALLBACK_URL = 'http://localhost:3000/callback'; // 실제 콜백 URL로 변경
+    // ======================================================
+
+    // 일반 로그인
+    function handleLogin(event) {
+      event.preventDefault();
+      const email    = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const errorMsg = document.getElementById('errorMsg');
+
+      if (email && password) {
+        console.log('로그인 시도:', email);
+        // TODO: 서버 인증 API 연동
+        errorMsg.style.display = 'none';
+      } else {
+        errorMsg.style.display = 'block';
+      }
+    }
+
+    // Google 로그인
+    function handleGoogleLogin() {
+      if (GOOGLE_CLIENT_ID === 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com') {
+        alert('Google Client ID를 설정해주세요.\n(Google Cloud Console → API 및 서비스 → 사용자 인증 정보)');
+        return;
+      }
+      google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: onGoogleCredential,
+      });
+      google.accounts.id.prompt();
+    }
+
+    function onGoogleCredential(response) {
+      console.log('Google 로그인 성공. ID Token:', response.credential);
+      // TODO: response.credential(JWT)을 서버로 전송해 검증
+    }
+
+    // 네이버 로그인
+    function handleNaverLogin() {
+      if (NAVER_CLIENT_ID === 'YOUR_NAVER_CLIENT_ID') {
+        alert('Naver Client ID를 설정해주세요.\n(Naver Developers → 애플리케이션 등록)');
+        return;
+      }
+      const naver = new naver_id_login(NAVER_CLIENT_ID, NAVER_CALLBACK_URL);
+      naver.go_login(); // 네이버 로그인 팝업 실행
+    }
+  </script>
+</body>
+</html>
