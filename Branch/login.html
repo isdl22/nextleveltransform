@@ -7,8 +7,6 @@
 
   <!-- Google Identity Services -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <!-- Naver Login SDK -->
-  <script src="https://static.nid.naver.com/js/naverLogin_implicit-1.0.3.js" charset="utf-8"></script>
 
   <style>
     * {
@@ -223,11 +221,6 @@
       flex-shrink: 0;
     }
 
-    /* 네이버 로그인 SDK 기본 앵커 숨김 */
-    #naver_id_login {
-      display: none;
-    }
-
     .signup-link {
       text-align: center;
       color: rgba(255, 255, 255, 0.5);
@@ -319,17 +312,6 @@
         </svg>
         Google로 로그인
       </button>
-
-      <!-- 네이버 로그인 SDK 마운트 포인트 -->
-      <div id="naver_id_login"></div>
-
-      <!-- 네이버 로그인 커스텀 버튼 -->
-      <button class="btn-social btn-naver" onclick="handleNaverLogin()">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
-          <path d="M16.273 12.845L7.376 0H0v24h7.727V11.155L16.624 24H24V0h-7.727z"/>
-        </svg>
-        네이버로 로그인
-      </button>
     </div>
 
     <div class="signup-link">
@@ -341,9 +323,7 @@
     // ======================================================
     // TODO: 아래 값을 발급받은 Client ID로 교체하세요
     // ======================================================
-    const GOOGLE_CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com';
-    const NAVER_CLIENT_ID  = 'YOUR_NAVER_CLIENT_ID';
-    const NAVER_CALLBACK_URL = 'http://localhost:3000/callback'; // 실제 콜백 URL로 변경
+    const GOOGLE_CLIENT_ID = '639619909086-pu05s8td7p8jla84b2i69q2cblhn9sjq.apps.googleusercontent.com';
     // ======================================================
 
     // 일반 로그인
@@ -364,10 +344,6 @@
 
     // Google 로그인
     function handleGoogleLogin() {
-      if (GOOGLE_CLIENT_ID === 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com') {
-        alert('Google Client ID를 설정해주세요.\n(Google Cloud Console → API 및 서비스 → 사용자 인증 정보)');
-        return;
-      }
       google.accounts.id.initialize({
         client_id: GOOGLE_CLIENT_ID,
         callback: onGoogleCredential,
@@ -378,16 +354,6 @@
     function onGoogleCredential(response) {
       console.log('Google 로그인 성공. ID Token:', response.credential);
       // TODO: response.credential(JWT)을 서버로 전송해 검증
-    }
-
-    // 네이버 로그인
-    function handleNaverLogin() {
-      if (NAVER_CLIENT_ID === 'YOUR_NAVER_CLIENT_ID') {
-        alert('Naver Client ID를 설정해주세요.\n(Naver Developers → 애플리케이션 등록)');
-        return;
-      }
-      const naver = new naver_id_login(NAVER_CLIENT_ID, NAVER_CALLBACK_URL);
-      naver.go_login(); // 네이버 로그인 팝업 실행
     }
   </script>
 </body>
